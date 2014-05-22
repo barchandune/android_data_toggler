@@ -73,7 +73,8 @@ public class MobileDataToggler extends AppWidgetProvider {
 			
 			// waiting for state change...
 			while(isEnabled(context) == oldState)
-				Log.i("Custom", "Waiting for state change");
+				//Log.i("Custom", "Waiting for state change")
+				;
 			
 			//... and then update the icon
 			if(!oldState) {
