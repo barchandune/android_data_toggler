@@ -11,6 +11,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
+import android.util.Log;
 import android.widget.RemoteViews;
 
 public class MobileDataToggler extends AppWidgetProvider {	
@@ -34,7 +35,7 @@ public class MobileDataToggler extends AppWidgetProvider {
 			if(isEnabled(context)) {
 				views.setImageViewResource(R.id.imageButton1, R.drawable.ic_mobile_data_on);
 			} else {
-				views.setImageViewResource(R.id.imageButton1, R.drawable.ic_mobile_data_on);
+				views.setImageViewResource(R.id.imageButton1, R.drawable.ic_mobile_data_off);
 			}
 		
 			appWidgetManager.updateAppWidget(widgetId, views);
@@ -54,31 +55,34 @@ public class MobileDataToggler extends AppWidgetProvider {
 	private void toggleMobileData(Context context) {
 		try {
 			final ConnectivityManager cm = (ConnectivityManager)  context.getSystemService(Context.CONNECTIVITY_SERVICE);
-			final Class cmClass = Class.forName(cm.getClass().getName());
+			final Class<?> cmClass = Class.forName(cm.getClass().getName());
 			final Field cmField = cmClass.getDeclaredField("mService");
 			cmField.setAccessible(true);
 			final Object icm = cmField.get(cm);
-			final Class icmClass =  Class.forName(icm.getClass().getName());
+			final Class<?> icmClass =  Class.forName(icm.getClass().getName());
 			
 			final Method setMobileDataEnabledMethod = icmClass.getDeclaredMethod("setMobileDataEnabled", Boolean.TYPE);
 			setMobileDataEnabledMethod.setAccessible(true);		
 			
 			// toggle state and widget image
 			RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.main);
-			AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context.getApplicationContext());
 			ComponentName thisWidget = new ComponentName(context.getApplicationContext(), MobileDataToggler.class);
 			
-			boolean enabled = isEnabled(context);
-			if(enabled) {
+			boolean oldState = isEnabled(context);
+			setMobileDataEnabledMethod.invoke(icm, !oldState);
+			
+			// waiting for state change...
+			while(isEnabled(context) == oldState)
+				Log.i("Custom", "Waiting for state change");
+			
+			//... and then update the icon
+			if(!oldState) {
 				views.setImageViewResource(R.id.imageButton1, R.drawable.ic_mobile_data_on);
 			} else {
-				views.setImageViewResource(R.id.imageButton1, R.drawable.ic_mobile_data_on);
-			}
-			setMobileDataEnabledMethod.invoke(icm, !enabled);
-			int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
-	        if (appWidgetIds != null && appWidgetIds.length > 0) {
-				appWidgetManager.updateAppWidget(thisWidget, views);
-	        }			
+				views.setImageViewResource(R.id.imageButton1, R.drawable.ic_mobile_data_off);
+			}			
+			AppWidgetManager manager = AppWidgetManager.getInstance(context);
+			manager.updateAppWidget(thisWidget, views);		
 		} catch (ClassNotFoundException | NoSuchFieldException
 				| IllegalAccessException | IllegalArgumentException
 				| NoSuchMethodException | InvocationTargetException e) {
@@ -89,10 +93,9 @@ public class MobileDataToggler extends AppWidgetProvider {
 	private boolean isEnabled(Context context) {
 		try {
 			final ConnectivityManager cm = (ConnectivityManager)  context.getSystemService(Context.CONNECTIVITY_SERVICE);
-			final Class cmClass = Class.forName(cm.getClass().getName());
+			final Class<?> cmClass = Class.forName(cm.getClass().getName());
 			final Field cmField = cmClass.getDeclaredField("mService");
 			cmField.setAccessible(true);
-			final Object icm = cmField.get(cm);
 			
 			// get mobile data state		
 			final Method isEnabled = cmClass.getDeclaredMethod("getMobileDataEnabled");
